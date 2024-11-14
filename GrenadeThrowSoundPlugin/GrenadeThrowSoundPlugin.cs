@@ -49,8 +49,7 @@ namespace GrenadeThrowSoundPlugin
 
                 if (DateTime.UtcNow < data.cooldownEndTime)
                 {
-                    var cooldownMessage = _localizer["lang.chat.cooldown", Config.CooldownSeconds];
-                    player.PrintToChat(cooldownMessage);
+                    player.PrintToChat(_localizer["lang.chat.cooldown", Config.CooldownSeconds]);
                     return HookResult.Continue;
                 }
 
@@ -58,8 +57,7 @@ namespace GrenadeThrowSoundPlugin
                 if (data.count >= Config.MaxThrows)
                 {
                     data = (0, DateTime.UtcNow.AddSeconds(Config.CooldownSeconds));
-                    var cooldownMessage = _localizer["lang.chat.cooldown", Config.CooldownSeconds];
-                    player.PrintToChat(cooldownMessage);
+                    player.PrintToChat(_localizer["lang.chat.cooldown", Config.CooldownSeconds]);
                 }
                 playerThrowData[player] = data;
 

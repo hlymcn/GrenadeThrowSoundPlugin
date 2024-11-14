@@ -1,4 +1,4 @@
-﻿using CounterStrikeSharp.API;
+using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Modules.Entities;
@@ -54,17 +54,16 @@ namespace GrenadeThrowSoundPlugin
                     return HookResult.Continue;
                 }
 
-                if (data.count < Config.MaxThrows)
+                data = (data.count + 1, data.cooldownEndTime);
+                if (data.count >= Config.MaxThrows)
                 {
-                    data = (data.count + 1, data.cooldownEndTime);
-                }
-                else
-                {
-                    data = (data.count + 1, DateTime.UtcNow.AddSeconds(Config.CooldownSeconds));
+                    data = (0, DateTime.UtcNow.AddSeconds(Config.CooldownSeconds));
+                    var cooldownMessage = _localizer["lang.chat.cooldown", Config.CooldownSeconds];
+                    player.PrintToChat(cooldownMessage);
                 }
                 playerThrowData[player] = data;
 
-                if (data.count <= Config.MaxThrows || data.count == Config.MaxThrows + 1)
+                if (data.cooldownEndTime <= DateTime.UtcNow)
                 {
                     var sound = Config.GrenadeThrowSounds[Random.Shared.Next(Config.GrenadeThrowSounds.Count)];
                     foreach (var onlinePlayer in Utilities.GetPlayers())

@@ -1,12 +1,8 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
-using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Utils;
 using Microsoft.Extensions.Localization;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using static GrenadeThrowSoundPlugin.GrenadeThrowSoundPlugin;
 
 namespace GrenadeThrowSoundPlugin
@@ -39,48 +35,57 @@ namespace GrenadeThrowSoundPlugin
             if (player == null || !player.IsValid || player.IsBot)
                 return HookResult.Continue;
 
-            if (@event.Weapon == "hegrenade")
-            {
-                if (!playerThrowData.TryGetValue(player, out var data))
+                if (@event.Weapon == "hegrenade")
                 {
-                    data = (0, DateTime.MinValue);
-                    playerThrowData[player] = data;
-                }
-
-                if (DateTime.UtcNow < data.cooldownEndTime)
-                {
-                    player.PrintToChat(_localizer["lang.chat.cooldown", Config.CooldownSeconds]);
-                    return HookResult.Continue;
-                }
-
-                data = (data.count + 1, data.cooldownEndTime);
-                if (data.count >= Config.MaxThrows)
-                {
-                    data = (0, DateTime.UtcNow.AddSeconds(Config.CooldownSeconds));
-                    player.PrintToChat(_localizer["lang.chat.cooldown", Config.CooldownSeconds]);
-                }
-                playerThrowData[player] = data;
-
-                if (data.cooldownEndTime <= DateTime.UtcNow)
-                {
-                    var sound = Config.GrenadeThrowSounds[Random.Shared.Next(Config.GrenadeThrowSounds.Count)];
-                    foreach (var onlinePlayer in Utilities.GetPlayers())
+                    if (!playerThrowData.TryGetValue(player, out var data))
                     {
-                        onlinePlayer.ExecuteClientCommand($"play \"{sound}\"");
+                        data = (1, DateTime.MinValue);
+                        playerThrowData[player] = data;
+                        PlayAndBroadcastSound(player);
                     }
-
-                    var teamColor = player.Team switch
+                    else
                     {
-                        CsTeam.CounterTerrorist => ChatColors.Blue,
-                        CsTeam.Terrorist => ChatColors.Red,
-                        _ => ChatColors.White
-                    };
+                        if (DateTime.UtcNow < data.cooldownEndTime)
+                        {
+                            var remainingSeconds = (data.cooldownEndTime - DateTime.UtcNow).TotalSeconds;
+                            Server.NextFrame(() => player.PrintToChat($"{_localizer["lang.chat.cooldown", remainingSeconds]}"));
+                            return HookResult.Continue;
+                        }
 
-                    var playerName = player.PlayerName ?? "Console";
-                    Server.PrintToChatAll($"{_localizer["lang.chatall.grenade", playerName, teamColor]}");
+                        data = (data.count + 1, data.cooldownEndTime);
+                        playerThrowData[player] = data;
+
+                        if (data.count >= Config.MaxThrows)
+                        {
+                            playerThrowData[player] = (0, DateTime.UtcNow.AddSeconds(Config.CooldownSeconds));
+                            PlayAndBroadcastSound(player);
+                        }
+                        else
+                        {
+                            PlayAndBroadcastSound(player);
+                        }
+                    }
                 }
-            }
             return HookResult.Continue;
+        }
+
+        private void PlayAndBroadcastSound(CCSPlayerController player)
+        {
+            var sound = Config.GrenadeThrowSounds[Random.Shared.NextDistinct(Config.GrenadeThrowSounds.Count)];
+            foreach (var onlinePlayer in Utilities.GetPlayers())
+            {
+                onlinePlayer.ExecuteClientCommand($"play \"{sound}\"");
+            }
+
+            var teamColor = player.Team switch
+            {
+                CsTeam.CounterTerrorist => ChatColors.Blue,
+                CsTeam.Terrorist => ChatColors.Red,
+                _ => ChatColors.White
+            };
+
+            var playerName = player.PlayerName ?? "Console";
+            Server.PrintToChatAll($"{_localizer["lang.chatall.grenade", playerName, teamColor]}");
         }
 
         public void OnConfigParsed(GrenadeThrowSoundsConfig config)
